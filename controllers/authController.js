@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { 
   BadRequestError, 
   UnauthorizedError, 
@@ -33,7 +34,7 @@ exports.signup = async (req, res, next) => {
       assignedRole = "pending_teacher"; // Teachers require admin approval
     }
 
-    user = new User({ name, email, password, role: assignedRole }); // ✅ Assigns the correct role
+    user = new User({ name, email, password, role: assignedRole });
     await user.save();
 
     const token = generateToken(user);
@@ -84,6 +85,56 @@ exports.login = async (req, res, next) => {
     });
   } catch (err) {
     console.error("❌ Login error:", err);
+    next(err);
+  }
+};
+
+// 🔹 Request Password Reset
+exports.requestPasswordReset = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate a reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // Token expires in 1 hour
+    await user.save();
+
+    // Send email (Replace this with actual email sending logic)
+    console.log(`📧 Reset Token for ${email}: ${resetToken}`);
+
+    res.json({ message: "Password reset link has been sent to your email", resetToken });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 🔹 Reset Password
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    // Hash new password and save
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successful. You can now log in." });
+  } catch (err) {
     next(err);
   }
 };

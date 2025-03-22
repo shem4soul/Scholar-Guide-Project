@@ -1,5 +1,5 @@
 const express = require("express");
-const { signup, login } = require("../controllers/authController");
+const { signup, login, requestPasswordReset, resetPassword } = require("../controllers/authController");
 const { auth, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -127,5 +127,63 @@ router.post("/admin/signup", auth, authorizeRoles("admin"), signup);
  *         description: Server error
  */
 router.post("/login", login);
+
+/**
+ * @swagger
+ * /api/auth/request-password-reset:
+ *   post:
+ *     summary: Request password reset
+ *     description: Generates a password reset token and sends it via email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: "user@example.com"
+ *     responses:
+ *       200:
+ *         description: Reset token sent successfully
+ *       404:
+ *         description: User not found
+ */
+router.post("/request-password-reset", requestPasswordReset);
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password
+ *     description: Resets the user's password using a token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - newPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 example: "reset-token-here"
+ *               newPassword:
+ *                 type: string
+ *                 example: "newpassword123"
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired token
+ */
+router.post("/reset-password", resetPassword);
 
 module.exports = router;
